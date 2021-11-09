@@ -61,11 +61,22 @@ This is the original ROS1 implementation of LIO-SAM. For a ROS2 implementation s
   sudo apt-get install -y ros-kinetic-robot-localization
   sudo apt-get install -y ros-kinetic-robot-state-publisher
   ```
-- [gtsam](https://gtsam.org/get_started/) (Georgia Tech Smoothing and Mapping library)
+- [gtsam](https://github.com/borglab/gtsam/releases) (Georgia Tech Smoothing and Mapping library)
+
+  
   ```
   sudo add-apt-repository ppa:borglab/gtsam-release-4.0
   sudo apt install libgtsam-dev libgtsam-unstable-dev
   ```
+
+- Alternative way - build [gtsam](https://github.com/borglab/gtsam/releases) from sources
+
+  ```
+  sudo add-apt-repository ppa:borglab/gtsam-release-4.0
+  sudo apt install libgtsam-dev libgtsam-unstable-dev
+  ```
+
+
 
 ## Install
 
