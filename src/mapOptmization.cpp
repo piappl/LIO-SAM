@@ -1153,6 +1153,8 @@ public:
         // reset flag for next iteration
         std::fill(laserCloudOriCornerFlag.begin(), laserCloudOriCornerFlag.end(), false);
         std::fill(laserCloudOriSurfFlag.begin(), laserCloudOriSurfFlag.end(), false);
+
+        cout << "laserCloudCornerLastDSNum: " << laserCloudCornerLastDSNum << "laserCloudSurfLastDSNum: " << laserCloudSurfLastDSNum << endl;        
     }
 
     bool LMOptimization(int iterCount)
@@ -1274,6 +1276,7 @@ public:
                             pow(matX.at<float>(5, 0) * 100, 2));
 
         if (deltaR < 0.05 && deltaT < 0.05) {
+            cout << "deltaR: " << deltaR << "deltaT: " << deltaT << endl;
             return true; // converged
         }
         return false; // keep optimizing
@@ -1299,8 +1302,11 @@ public:
 
                 combineOptimizationCoeffs();
 
-                if (LMOptimization(iterCount) == true)
-                    break;              
+                if (LMOptimization(iterCount) == true) {
+                    cout << "iterCount: " << iterCount << endl;
+                    break;
+                }
+                                 
             }
 
             transformUpdate();
@@ -1640,6 +1646,9 @@ public:
         laserOdometryROS.pose.pose.position.x = transformTobeMapped[3];
         laserOdometryROS.pose.pose.position.y = transformTobeMapped[4];
         laserOdometryROS.pose.pose.position.z = transformTobeMapped[5];
+        laserOdometryROS.pose.covariance[0] = poseCovariance(3,3);
+        laserOdometryROS.pose.covariance[7] = poseCovariance(4,4);
+        laserOdometryROS.pose.covariance[14] = poseCovariance(5,5);
         laserOdometryROS.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
         pubLaserOdometryGlobal.publish(laserOdometryROS);
         
