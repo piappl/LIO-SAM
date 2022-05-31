@@ -74,6 +74,8 @@ public:
     ros::Publisher pubLoopConstraintEdge;
 
     ros::Publisher pubSLAMInfo;
+    ros::Publisher pubOdomErrors;
+    ros::Publisher pubLidarPose3Factor;
 
     ros::Subscriber subCloud;
     ros::Subscriber subGPS;
@@ -153,6 +155,10 @@ public:
     Eigen::Affine3f incrementalOdometryAffineFront;
     Eigen::Affine3f incrementalOdometryAffineBack;
 
+    lio_sam::Float64MultiArrayStamped odomErrorMsg;
+    geometry_msgs::PoseStamped poseLidarMsg;
+    bool poseLidarPubFlag;
+
 
     mapOptimization()
     {
@@ -166,6 +172,9 @@ public:
         pubLaserOdometryGlobal      = nh.advertise<nav_msgs::Odometry> ("lio_sam/mapping/odometry", 1);
         pubLaserOdometryIncremental = nh.advertise<nav_msgs::Odometry> ("lio_sam/mapping/odometry_incremental", 1);
         pubPath                     = nh.advertise<nav_msgs::Path>("lio_sam/mapping/path", 1);
+
+        pubOdomErrors = nh.advertise<lio_sam::Float64MultiArrayStamped>("lio_sam/odom_errors", 1);
+        pubLidarPose3Factor = nh.advertise<geometry_msgs::PoseStamped>("lio_sam/lidar_pose3_factor", 1);
 
         subCloud = nh.subscribe<lio_sam::cloud_info>("lio_sam/feature/cloud_info", 1, &mapOptimization::laserCloudInfoHandler, this, ros::TransportHints().tcpNoDelay());
         subGPS   = nh.subscribe<nav_msgs::Odometry> (gpsTopic, 200, &mapOptimization::gpsHandler, this, ros::TransportHints().tcpNoDelay());
@@ -189,6 +198,13 @@ public:
         downSizeFilterSurroundingKeyPoses.setLeafSize(surroundingKeyframeDensity, surroundingKeyframeDensity, surroundingKeyframeDensity); // for surrounding key poses of scan-to-map optimization
 
         allocateMemory();
+
+        odomErrorMsg.multi_array.layout.dim.push_back(std_msgs::MultiArrayDimension());
+        odomErrorMsg.multi_array.layout.dim[0].size = 12;
+        odomErrorMsg.multi_array.layout.dim[0].stride = 1;
+        odomErrorMsg.multi_array.layout.dim[0].label = "x";
+
+        odomErrorMsg.multi_array.data.resize(12);
     }
 
     void allocateMemory()
@@ -245,6 +261,10 @@ public:
         pcl::fromROSMsg(msgIn->cloud_corner,  *laserCloudCornerLast);
         pcl::fromROSMsg(msgIn->cloud_surface, *laserCloudSurfLast);
 
+        odomErrorMsg.multi_array.data.clear();
+        odomErrorMsg.multi_array.data.resize(12);
+        poseLidarPubFlag = false;
+
         std::lock_guard<std::mutex> lock(mtx);
 
         static double timeLastProcessing = -1;
@@ -267,6 +287,14 @@ public:
             publishOdometry();
 
             publishFrames();
+
+            if (poseLidarPubFlag) {
+                poseLidarMsg.header.stamp = ros::Time::now();
+                pubLidarPose3Factor.publish(poseLidarMsg);
+            }
+
+            odomErrorMsg.header.stamp = ros::Time::now();
+            pubOdomErrors.publish(odomErrorMsg);
         }
     }
 
@@ -1154,7 +1182,12 @@ public:
         std::fill(laserCloudOriCornerFlag.begin(), laserCloudOriCornerFlag.end(), false);
         std::fill(laserCloudOriSurfFlag.begin(), laserCloudOriSurfFlag.end(), false);
 
-        cout << "laserCloudCornerLastDSNum: " << laserCloudCornerLastDSNum << "laserCloudSurfLastDSNum: " << laserCloudSurfLastDSNum << endl;        
+        // cout << "laserCloudCornerLastDSNum: " << laserCloudCornerLastDSNum << "laserCloudSurfLastDSNum: " << laserCloudSurfLastDSNum << endl;
+
+        odomErrorMsg.multi_array.data[0] = laserCloudCornerLastDSNum;
+        odomErrorMsg.multi_array.data[1] = laserCloudSurfLastDSNum;
+        // odomErrorMsg.multi_array.data.push_back(laserCloudCornerLastDSNum);
+        // odomErrorMsg.multi_array.data.push_back(laserCloudSurfLastDSNum);         
     }
 
     bool LMOptimization(int iterCount)
@@ -1276,7 +1309,9 @@ public:
                             pow(matX.at<float>(5, 0) * 100, 2));
 
         if (deltaR < 0.05 && deltaT < 0.05) {
-            cout << "deltaR: " << deltaR << "deltaT: " << deltaT << endl;
+            // cout << "deltaR: " << deltaR << "deltaT: " << deltaT << endl;
+            odomErrorMsg.multi_array.data[2] = deltaR;
+            odomErrorMsg.multi_array.data[3] = deltaT;
             return true; // converged
         }
         return false; // keep optimizing
@@ -1303,7 +1338,8 @@ public:
                 combineOptimizationCoeffs();
 
                 if (LMOptimization(iterCount) == true) {
-                    cout << "iterCount: " << iterCount << endl;
+                    // cout << "iterCount: " << iterCount << endl;
+                    odomErrorMsg.multi_array.data[4] = (float)iterCount;
                     break;
                 }
                                  
@@ -1396,6 +1432,28 @@ public:
             gtsam::Pose3 poseFrom = pclPointTogtsamPose3(cloudKeyPoses6D->points.back());
             gtsam::Pose3 poseTo   = trans2gtsamPose(transformTobeMapped);
             gtSAMgraph.add(BetweenFactor<Pose3>(cloudKeyPoses3D->size()-1, cloudKeyPoses3D->size(), poseFrom.between(poseTo), odometryNoise));
+            // https://gtsam.org/doxygen/4.0.0/a02711.html
+            gtsam::Pose3 poseOdom = poseFrom.between(poseTo);
+            poseLidarMsg.pose.position.x = poseOdom.x();
+            poseLidarMsg.pose.position.y = poseOdom.y();
+            poseLidarMsg.pose.position.z = poseOdom.z();
+
+            // https://github.com/borglab/gtsam/blob/43e8f1e5aeaf11890262722c1e5e04a11dbf9d75/gtsam/geometry/Quaternion.h#L172
+            gtsam::Quaternion quatOdom = poseOdom.rotation().toQuaternion();
+            // https://eigen.tuxfamily.org/dox/classEigen_1_1QuaternionBase.html
+            poseLidarMsg.pose.orientation.w = quatOdom.w();
+            poseLidarMsg.pose.orientation.x = quatOdom.x();
+            poseLidarMsg.pose.orientation.y = quatOdom.y();
+            poseLidarMsg.pose.orientation.z = quatOdom.z();
+
+            poseLidarPubFlag = true;
+
+            // odomErrorMsg.multi_array.data[2] = poseOdom.x();
+            // odomErrorMsg.multi_array.data[3] = poseOdom.y();
+            // odomErrorMsg.multi_array.data[4] = poseFrom.x();
+            // odomErrorMsg.multi_array.data[5] = poseFrom.y();
+            // odomErrorMsg.multi_array.data[6] = poseTo.x();
+            // odomErrorMsg.multi_array.data[7] = poseTo.y();
             initialEstimate.insert(cloudKeyPoses3D->size(), poseTo);
         }
     }
@@ -1408,75 +1466,40 @@ public:
         // wait for system initialized and settles down
         if (cloudKeyPoses3D->points.empty())
             return;
-        else
-        {
-            if (pointDistance(cloudKeyPoses3D->front(), cloudKeyPoses3D->back()) < 5.0)
-                return;
-        }
-
-        // pose covariance small, no need to correct
-        if (poseCovariance(3,3) < poseCovThreshold && poseCovariance(4,4) < poseCovThreshold)
-            return;
-
-        // last gps position
-        static PointType lastGPSPoint;
 
         while (!gpsQueue.empty())
         {
-            if (gpsQueue.front().header.stamp.toSec() < timeLaserInfoCur - 0.2)
-            {
-                // message too old
-                gpsQueue.pop_front();
-            }
-            else if (gpsQueue.front().header.stamp.toSec() > timeLaserInfoCur + 0.2)
-            {
-                // message too new
-                break;
-            }
-            else
-            {
-                nav_msgs::Odometry thisGPS = gpsQueue.front();
-                gpsQueue.pop_front();
+            nav_msgs::Odometry thisGPS = gpsQueue.front();
+            gpsQueue.pop_front();
+            
+            gtsam::Pose3 global_pose3 = gtsam::Pose3(
+                gtsam::Rot3::Quaternion(
+                    thisGPS.pose.pose.orientation.w,
+                    thisGPS.pose.pose.orientation.x,
+                    thisGPS.pose.pose.orientation.y,
+                    thisGPS.pose.pose.orientation.z
+                ),
+                gtsam::Point3(
+                    thisGPS.pose.pose.position.x,
+                    thisGPS.pose.pose.position.y,
+                    thisGPS.pose.pose.position.z
+                )
+            );
 
-                // GPS too noisy, skip
-                float noise_x = thisGPS.pose.covariance[0];
-                float noise_y = thisGPS.pose.covariance[7];
-                float noise_z = thisGPS.pose.covariance[14];
-                if (noise_x > gpsCovThreshold || noise_y > gpsCovThreshold)
-                    continue;
+            gtsam::Vector Vector6(6);
+            Vector6 << thisGPS.pose.covariance[0],
+                thisGPS.pose.covariance[7],
+                thisGPS.pose.covariance[14],
+                thisGPS.pose.covariance[21],
+                thisGPS.pose.covariance[28],
+                thisGPS.pose.covariance[35];
+            noiseModel::Diagonal::shared_ptr gps_noise = noiseModel::Diagonal::Variances(Vector6);
 
-                float gps_x = thisGPS.pose.pose.position.x;
-                float gps_y = thisGPS.pose.pose.position.y;
-                float gps_z = thisGPS.pose.pose.position.z;
-                if (!useGpsElevation)
-                {
-                    gps_z = transformTobeMapped[5];
-                    noise_z = 0.01;
-                }
+            gtsam::PriorFactor<gtsam::Pose3> gps_factor(cloudKeyPoses3D->size(), global_pose3, gps_noise);
+            gtSAMgraph.add(gps_factor);
 
-                // GPS not properly initialized (0,0,0)
-                if (abs(gps_x) < 1e-6 && abs(gps_y) < 1e-6)
-                    continue;
-
-                // Add GPS every a few meters
-                PointType curGPSPoint;
-                curGPSPoint.x = gps_x;
-                curGPSPoint.y = gps_y;
-                curGPSPoint.z = gps_z;
-                if (pointDistance(curGPSPoint, lastGPSPoint) < 5.0)
-                    continue;
-                else
-                    lastGPSPoint = curGPSPoint;
-
-                gtsam::Vector Vector3(3);
-                Vector3 << max(noise_x, 1.0f), max(noise_y, 1.0f), max(noise_z, 1.0f);
-                noiseModel::Diagonal::shared_ptr gps_noise = noiseModel::Diagonal::Variances(Vector3);
-                gtsam::GPSFactor gps_factor(cloudKeyPoses3D->size(), gtsam::Point3(gps_x, gps_y, gps_z), gps_noise);
-                gtSAMgraph.add(gps_factor);
-
-                aLoopIsClosed = true;
-                break;
-            }
+            aLoopIsClosed = true;
+            break;
         }
     }
 
