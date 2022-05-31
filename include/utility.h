@@ -14,6 +14,9 @@
 #include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <geometry_msgs/PoseStamped.h>
+
+#include "lio_sam/Float64MultiArrayStamped.h"
 
 #include <opencv2/opencv.hpp>
 

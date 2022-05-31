@@ -27,10 +27,13 @@ find_package(OpenCV REQUIRED QUIET)
 find_package(GTSAM REQUIRED QUIET)
 find_package(Boost REQUIRED COMPONENTS timer)
 
+catkin_python_setup()
+
 add_message_files(
   DIRECTORY msg
   FILES
   cloud_info.msg
+  Float64MultiArrayStamped.msg
 )
 
 add_service_files(
