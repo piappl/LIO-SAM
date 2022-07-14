@@ -66,6 +66,7 @@ public:
     ros::Publisher pubLaserOdometryIncremental;
     ros::Publisher pubKeyPoses;
     ros::Publisher pubPath;
+    ros::Publisher pubFullGlobalMap;    
 
     ros::Publisher pubHistoryKeyFrames;
     ros::Publisher pubIcpKeyFrames;
@@ -173,6 +174,7 @@ public:
         pubLaserOdometryGlobal      = nh.advertise<nav_msgs::Odometry> ("lio_sam/mapping/odometry", 1);
         pubLaserOdometryIncremental = nh.advertise<nav_msgs::Odometry> ("lio_sam/mapping/odometry_incremental", 1);
         pubPath                     = nh.advertise<nav_msgs::Path>("lio_sam/mapping/path", 1);
+        pubFullGlobalMap            = nh.advertise<sensor_msgs::PointCloud2>("lio_sam/mapping/full_map_global", 1);
 
         pubOdomErrors = nh.advertise<lio_sam::Float64MultiArrayStamped>("lio_sam/odom_errors", 1);
         pubLidarPose3Factor = nh.advertise<geometry_msgs::PoseStamped>("lio_sam/lidar_pose3_factor", 1);
@@ -455,6 +457,12 @@ public:
             publishGlobalMap();
         }
 
+        ros::Rate rate_full(1.0);
+        while (ros::ok()){
+            rate_full.sleep();
+            publishFullGlobalMap();
+        }
+
         if (savePCD == false)
             return;
 
@@ -516,6 +524,48 @@ public:
         downSizeFilterGlobalMapKeyFrames.setInputCloud(globalMapKeyFrames);
         downSizeFilterGlobalMapKeyFrames.filter(*globalMapKeyFramesDS);
         publishCloud(pubLaserCloudSurround, globalMapKeyFramesDS, timeLaserInfoStamp, odometryFrame);
+    }
+
+    void publishFullGlobalMap()
+    {
+
+        if (pubFullGlobalMap.getNumSubscribers() == 0)
+            return;
+
+        // extract global point cloud map
+        pcl::PointCloud<PointType>::Ptr globalCornerCloud(new pcl::PointCloud<PointType>());
+        pcl::PointCloud<PointType>::Ptr globalCornerCloudDS(new pcl::PointCloud<PointType>());
+        pcl::PointCloud<PointType>::Ptr globalSurfCloud(new pcl::PointCloud<PointType>());
+        pcl::PointCloud<PointType>::Ptr globalSurfCloudDS(new pcl::PointCloud<PointType>());
+        pcl::PointCloud<PointType>::Ptr globalMapCloud(new pcl::PointCloud<PointType>());
+        for (int i = 0; i < (int)cloudKeyPoses3D->size(); i++) {
+            *globalCornerCloud += *transformPointCloud(cornerCloudKeyFrames[i],  &cloudKeyPoses6D->points[i]);
+            *globalSurfCloud   += *transformPointCloud(surfCloudKeyFrames[i],    &cloudKeyPoses6D->points[i]);
+            // cout << "\r" << std::flush << "Processing feature cloud " << i << " of " << cloudKeyPoses6D->size() << " ...";
+        }
+
+        // TODO parameter for resolution
+        // double resolution = 0;
+
+        // if(resolution != 0)
+        // {
+        //     // down-sample and save corner cloud
+        //     downSizeFilterCorner.setInputCloud(globalCornerCloud);
+        //     downSizeFilterCorner.setLeafSize(req.resolution, req.resolution, req.resolution);
+        //     downSizeFilterCorner.filter(*globalCornerCloudDS);
+
+        //     // down-sample and save surf cloud
+        //     downSizeFilterSurf.setInputCloud(globalSurfCloud);
+        //     downSizeFilterSurf.setLeafSize(req.resolution, req.resolution, req.resolution);
+        //     downSizeFilterSurf.filter(*globalSurfCloudDS);
+        // }
+
+        // save global point cloud map
+        *globalMapCloud += *globalCornerCloud;
+        *globalMapCloud += *globalSurfCloud;
+
+        publishCloud(pubFullGlobalMap, globalMapCloud, timeLaserInfoStamp, odometryFrame);
+
     }
 
 
