@@ -503,6 +503,8 @@ public:
         odometry.twist.twist.angular.y = thisImu.angular_velocity.y + prevBiasOdom.gyroscope().y();
         odometry.twist.twist.angular.z = thisImu.angular_velocity.z + prevBiasOdom.gyroscope().z();
         pubImuOdometry.publish(odometry);
+
+        // cout << "Bias: " << prevBiasOdom << endl;
     }
 };
 

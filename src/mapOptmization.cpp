@@ -1,6 +1,7 @@
 #include "utility.h"
 #include "lio_sam/cloud_info.h"
 #include "lio_sam/save_map.h"
+#include "lio_sam/Float64MultiArrayStamped.h"
 
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/geometry/Pose3.h>
@@ -1424,7 +1425,8 @@ public:
     {
         if (cloudKeyPoses3D->points.empty())
         {
-            noiseModel::Diagonal::shared_ptr priorNoise = noiseModel::Diagonal::Variances((Vector(6) << 1e-2, 1e-2, M_PI*M_PI, 1e8, 1e8, 1e8).finished()); // rad*rad, meter*meter
+            // noiseModel::Diagonal::shared_ptr priorNoise = noiseModel::Diagonal::Variances((Vector(6) << 1e-2, 1e-2, M_PI*M_PI, 1e8, 1e8, 1e8).finished()); // rad*rad, meter*meter
+            noiseModel::Diagonal::shared_ptr priorNoise = noiseModel::Diagonal::Sigmas((Vector(6) << 0.01, 0.01, 0.01, 0.5, 0.5, 0.5).finished());
             gtSAMgraph.add(PriorFactor<Pose3>(0, trans2gtsamPose(transformTobeMapped), priorNoise));
             initialEstimate.insert(0, trans2gtsamPose(transformTobeMapped));
         }else{
