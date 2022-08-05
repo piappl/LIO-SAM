@@ -451,13 +451,13 @@ public:
 
     void visualizeGlobalMapThread()
     {
-        ros::Rate rate(0.2);
-        while (ros::ok()){
-            rate.sleep();
-            publishGlobalMap();
-        }
+        // ros::Rate rate(0.2);
+        // while (ros::ok()){
+        //     rate.sleep();
+        //     publishGlobalMap();
+        // }
 
-        ros::Rate rate_full(1.0);
+        ros::Rate rate_full(0.2);
         while (ros::ok()){
             rate_full.sleep();
             publishFullGlobalMap();
@@ -529,6 +529,8 @@ public:
     void publishFullGlobalMap()
     {
 
+        // cout << "In full cloud " << "\n";
+        
         if (pubFullGlobalMap.getNumSubscribers() == 0)
             return;
 
@@ -541,7 +543,7 @@ public:
         for (int i = 0; i < (int)cloudKeyPoses3D->size(); i++) {
             *globalCornerCloud += *transformPointCloud(cornerCloudKeyFrames[i],  &cloudKeyPoses6D->points[i]);
             *globalSurfCloud   += *transformPointCloud(surfCloudKeyFrames[i],    &cloudKeyPoses6D->points[i]);
-            // cout << "\r" << std::flush << "Processing feature cloud " << i << " of " << cloudKeyPoses6D->size() << " ...";
+            // cout << "\r" << std::flush << "Processing full cloud " << i << " of " << cloudKeyPoses6D->size() << " ...";
         }
 
         // TODO parameter for resolution
