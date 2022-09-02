@@ -86,11 +86,6 @@ public:
 
     void imuOdometryHandler(const nav_msgs::Odometry::ConstPtr& odomMsg)
     {
-        // static tf
-        static tf::TransformBroadcaster tfMap2Odom;
-        static tf::Transform map_to_odom = tf::Transform(tf::createQuaternionFromRPY(0, 0, 0), tf::Vector3(0, 0, 0));
-        tfMap2Odom.sendTransform(tf::StampedTransform(map_to_odom, odomMsg->header.stamp, mapFrame, odometryFrame));
-
         std::lock_guard<std::mutex> lock(mtx);
 
         imuOdomQueue.push_back(*odomMsg);
