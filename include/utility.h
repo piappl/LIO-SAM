@@ -83,7 +83,6 @@ public:
     string lidarFrame;
     string baselinkFrame;
     string odometryFrame;
-    string mapFrame;
     string lidarLink;
 
     // GPS Settings
@@ -169,7 +168,6 @@ public:
         nh.param<std::string>("lio_sam/lidarFrame", lidarFrame, "base_link");
         nh.param<std::string>("lio_sam/baselinkFrame", baselinkFrame, "base_link");
         nh.param<std::string>("lio_sam/odometryFrame", odometryFrame, "odom");
-        nh.param<std::string>("lio_sam/mapFrame", mapFrame, "map");
         nh.param<std::string>("lio_sam/lidarLink", lidarLink, "lidar_link");
 
         nh.param<bool>("lio_sam/useImuHeadingInitialization", useImuHeadingInitialization, false);
