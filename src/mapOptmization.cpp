@@ -1639,7 +1639,7 @@ public:
         nav_msgs::msg::Odometry laserOdometryROS;
         laserOdometryROS.header.stamp = timeLaserInfoStamp;
         laserOdometryROS.header.frame_id = odometryFrame;
-        laserOdometryROS.child_frame_id = "base_link"; // Hot Fix
+        laserOdometryROS.child_frame_id = lidarFrame;
         laserOdometryROS.pose.pose.position.x = transformTobeMapped[3];
         laserOdometryROS.pose.pose.position.y = transformTobeMapped[4];
         laserOdometryROS.pose.pose.position.z = transformTobeMapped[5];
@@ -1657,7 +1657,7 @@ public:
         tf2::Stamped<tf2::Transform> temp_odom_to_lidar(t_odom_to_lidar, time_point, odometryFrame);
         geometry_msgs::msg::TransformStamped trans_odom_to_lidar;
         tf2::convert(temp_odom_to_lidar, trans_odom_to_lidar);
-        trans_odom_to_lidar.child_frame_id = "base_link"; // Hot Fix
+        trans_odom_to_lidar.child_frame_id = lidarFrame;
         br->sendTransform(trans_odom_to_lidar);
 
         // Publish odometry for ROS (incremental)
@@ -1698,7 +1698,7 @@ public:
             }
             laserOdomIncremental.header.stamp = timeLaserInfoStamp;
             laserOdomIncremental.header.frame_id = odometryFrame;
-            laserOdomIncremental.child_frame_id = "base_link"; // Hot Fix
+            laserOdomIncremental.child_frame_id = lidarFrame;
             laserOdomIncremental.pose.pose.position.x = x;
             laserOdomIncremental.pose.pose.position.y = y;
             laserOdomIncremental.pose.pose.position.z = z;
