@@ -1648,6 +1648,21 @@ public:
         geometry_msgs::msg::Quaternion quat_msg;
         tf2::convert(quat_tf, quat_msg);
         laserOdometryROS.pose.pose.orientation = quat_msg;
+        //
+        laserOdometryROS.pose.covariance[0] += 0.001;   // x
+        laserOdometryROS.pose.covariance[7] += 0.001;   // y
+        laserOdometryROS.pose.covariance[14] += 0.001;  // z
+        laserOdometryROS.pose.covariance[21] += 0.001;  // roll
+        laserOdometryROS.pose.covariance[28] += 0.001;  // pitch
+        laserOdometryROS.pose.covariance[35] += 0.001;  // yaw
+        //
+        laserOdometryROS.twist.covariance[0] += 0.001;   // x
+        laserOdometryROS.twist.covariance[7] += 0.001;   // y
+        laserOdometryROS.twist.covariance[14] += 0.001;  // z
+        laserOdometryROS.twist.covariance[21] += 0.001;  // roll
+        laserOdometryROS.twist.covariance[28] += 0.001;  // pitch
+        laserOdometryROS.twist.covariance[35] += 0.001;  // yaw
+        //
         pubLaserOdometryGlobal->publish(laserOdometryROS);
 
         // Publish TF
