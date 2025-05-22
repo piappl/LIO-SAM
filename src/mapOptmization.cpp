@@ -1,3 +1,4 @@
+// clang-format off
 #include "utility.hpp"
 #include "lio_sam/msg/cloud_info.hpp"
 #include "lio_sam/srv/save_map.hpp"
@@ -1673,7 +1674,10 @@ public:
         geometry_msgs::msg::TransformStamped trans_odom_to_lidar;
         tf2::convert(temp_odom_to_lidar, trans_odom_to_lidar);
         trans_odom_to_lidar.child_frame_id = lidarFrame;
+        if (mSendTransform)
+        {
         br->sendTransform(trans_odom_to_lidar);
+        }
 
         // Publish odometry for ROS (incremental)
         static bool lastIncreOdomPubFlag = false;

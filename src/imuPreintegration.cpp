@@ -143,7 +143,10 @@ public:
         geometry_msgs::msg::TransformStamped ts;
         tf2::convert(tCur, ts);
         ts.child_frame_id = baselinkFrame;
+        if (mSendTransform)
+        {
         tfBroadcaster->sendTransform(ts);
+        }
 
         // publish IMU path
         static nav_msgs::msg::Path imuPath;
@@ -430,7 +433,7 @@ public:
         // Reset the optimization preintegration object.
         imuIntegratorOpt_->resetIntegrationAndSetBias(prevBias_);
         // check optimization
-        if (failureDetection(prevVel_, prevBias_))
+        if (failureDetection(prevVel_, prevBias_) || degenerate) // TODO temporary change!
         {
             resetParams();
             return;

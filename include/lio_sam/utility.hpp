@@ -1,3 +1,4 @@
+// clang-format off
 #pragma once
 #ifndef _UTILITY_LIDAR_ODOMETRY_H_
 #define _UTILITY_LIDAR_ODOMETRY_H_
@@ -68,6 +69,7 @@ class ParamServer : public rclcpp::Node
 {
 public:
     std::string robot_id;
+    bool mSendTransform;
 
     //Topics
     string pointCloudTopic;
@@ -154,6 +156,9 @@ public:
 
     ParamServer(std::string node_name, const rclcpp::NodeOptions & options) : Node(node_name, options)
     {
+        declare_parameter("sendTransform", true);
+        get_parameter("sendTransform", mSendTransform);
+        //
         declare_parameter("pointCloudTopic", "points");
         get_parameter("pointCloudTopic", pointCloudTopic);
         declare_parameter("imuTopic", "imu/data");
