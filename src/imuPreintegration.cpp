@@ -1,3 +1,5 @@
+// clang-format off
+#include <std_msgs/msg/string.hpp>
 #include "utility.hpp"
 
 #include <gtsam/geometry/Rot3.h>
@@ -181,6 +183,7 @@ public:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdometry;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubImuOdometry;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pubLaunchManager;
 
     rclcpp::CallbackGroup::SharedPtr callbackGroupImu;
     rclcpp::CallbackGroup::SharedPtr callbackGroupOdom;
@@ -247,6 +250,7 @@ public:
             odomOpt);
 
         pubImuOdometry = create_publisher<nav_msgs::msg::Odometry>(odomTopic+"_incremental", qos_imu);
+        pubLaunchManager =  create_publisher<std_msgs::msg::String>("launch_control", rclcpp::SystemDefaultsQoS());
 
         boost::shared_ptr<gtsam::PreintegrationParams> p = gtsam::PreintegrationParams::MakeSharedU(imuGravity);
         p->accelerometerCovariance  = gtsam::Matrix33::Identity(3,3) * pow(imuAccNoise, 2); // acc white noise in continuous
@@ -435,6 +439,9 @@ public:
         // check optimization
         if (failureDetection(prevVel_, prevBias_) || degenerate) // TODO temporary change!
         {
+            std_msgs::msg::String msg;
+            msg.data = "restart";
+            pubLaunchManager->publish(msg);
             resetParams();
             return;
         }
